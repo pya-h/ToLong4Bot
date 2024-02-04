@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	// _ "github.com/lib/pq" // postgres
 )
+
 const DATABASE_NAME string = "./togos.db"
+
 var lastUsedId uint64 = 0
 
 // var taskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
@@ -54,24 +55,24 @@ type Togo struct {
 }
 
 func (togo *Togo) Save() uint64 {
-	/*const CREATE_TABLE_QUERY string = `CREATE TABLE IF NOT EXISTS togos (id SERIAL PRIMARY KEY, owner_id BIGINT NOT NULL,
+	const CREATE_TABLE_QUERY string = `CREATE TABLE IF NOT EXISTS togos (id SERIAL PRIMARY KEY, owner_id BIGINT NOT NULL,
 	title VARCHAR(64) NOT NULL, description VARCHAR(256), weight INTEGER, extra INTEGER,
-	progress INTEGER, date timestamp with time zone, duration INTEGER)`*/
+	progress INTEGER, date DATETIME with time zone, duration INTEGER)`
 
-	db, err := sql.Open("sqlite3", DATABASE_NAME))
+	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
-	/*if _, err := db.Exec(CREATE_TABLE_QUERY); err != nil {
+	if _, err := db.Exec(CREATE_TABLE_QUERY); err != nil {
 		panic(err)
-	}*/
+	}
 	extra := 0
 	if togo.Extra {
 		extra = 1
 	}
-	if res, err := db.Exec("INSERT INTO togos (owner_id, title, description, weight, extra, progress, date, duration) VALUES ($1, $2::varchar, $3::varchar, $4, $5, $6, $7, $8)",
+	if res, err := db.Exec("INSERT INTO togos (owner_id, title, description, weight, extra, progress, date, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		togo.OwnerId, togo.Title, togo.Description, togo.Weight, extra, togo.Progress,
 		togo.Date.Time, togo.Duration.Minutes()); err != nil {
 		panic(err)
@@ -171,7 +172,7 @@ func (togo *Togo) setFields(terms []string) {
 }
 
 func (togo *Togo) Update(ownerID int64) {
-	db, err := sql.Open("sqlite3", DATABASE_NAME))
+	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
 		panic(err)
@@ -182,7 +183,7 @@ func (togo *Togo) Update(ownerID int64) {
 	if togo.Extra {
 		extra = 1
 	}
-	if _, err := db.Exec("UPDATE togos SET description=$1, weight=$2, extra=$3, progress=$4, date=$5, duration=$6 WHERE id=$7 AND owner_id=$8", // TODO: check ownerId? (no need)
+	if _, err := db.Exec("UPDATE togos SET description=?, weight=?, extra=?, progress=?, date=?, duration=? WHERE id=? AND owner_id=?", // TODO: check ownerId? (no need)
 		togo.Description, togo.Weight, extra, togo.Progress, togo.Date.Time, togo.Duration.Minutes(), togo.Id, ownerID); err != nil {
 		panic(err)
 	}
@@ -265,7 +266,7 @@ func (togos *TogoList) RemoveIndex(index int) {
 }
 
 func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
-	db, err := sql.Open("sqlite3", DATABASE_NAME))
+	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
 		return err
@@ -292,7 +293,7 @@ func (togos TogoList) Get(togoID uint64) (*Togo, error) {
 			return &togos[i], nil
 		}
 	}
-	return nil, errors.New("Can not find this togo!")
+	return nil, errors.New("can not find this togo")
 }
 
 // ---------------------- Shared Functions --------------------------------
@@ -300,7 +301,7 @@ func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
 
 	togos = make(TogoList, 0)
 	err = nil
-	if db, e := sql.Open("sqlite3", DATABASE_NAME)); e == nil {
+	if db, e := sql.Open("sqlite3", DATABASE_NAME); e == nil {
 		defer db.Close()
 		// ***** BETTER ALGORITHM
 		// FIRST GET THE COUNT OF ROWS, then create a slice of that size and then load into that.
