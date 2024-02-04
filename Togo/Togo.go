@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq" // postgres
+	_ "github.com/mattn/go-sqlite3"
+	// _ "github.com/lib/pq" // postgres
 )
-
+const DATABASE_NAME string = "./togos.db"
 var lastUsedId uint64 = 0
 
 // var taskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
@@ -57,7 +58,7 @@ func (togo *Togo) Save() uint64 {
 	title VARCHAR(64) NOT NULL, description VARCHAR(256), weight INTEGER, extra INTEGER,
 	progress INTEGER, date timestamp with time zone, duration INTEGER)`*/
 
-	db, err := sql.Open("postgres", os.Getenv("POSTGRES_URL"))
+	db, err := sql.Open("sqlite3", DATABASE_NAME))
 
 	if err != nil {
 		panic(err)
@@ -170,7 +171,7 @@ func (togo *Togo) setFields(terms []string) {
 }
 
 func (togo *Togo) Update(ownerID int64) {
-	db, err := sql.Open("postgres", os.Getenv("POSTGRES_URL"))
+	db, err := sql.Open("sqlite3", DATABASE_NAME))
 
 	if err != nil {
 		panic(err)
@@ -264,7 +265,7 @@ func (togos *TogoList) RemoveIndex(index int) {
 }
 
 func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
-	db, err := sql.Open("postgres", os.Getenv("POSTGRES_URL"))
+	db, err := sql.Open("sqlite3", DATABASE_NAME))
 
 	if err != nil {
 		return err
@@ -272,7 +273,7 @@ func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
 
 	defer db.Close()
 
-	if _, err := db.Exec("DELETE FROM togos WHERE id=$1 AND owner_id=$2", togoID, ownerID); err != nil {
+	if _, err := db.Exec("DELETE FROM togos WHERE id=? AND owner_id=?", togoID, ownerID); err != nil {
 		return err
 	}
 	for i := range togos {
@@ -299,11 +300,11 @@ func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
 
 	togos = make(TogoList, 0)
 	err = nil
-	if db, e := sql.Open("postgres", os.Getenv("POSTGRES_URL")); e == nil {
+	if db, e := sql.Open("sqlite3", DATABASE_NAME)); e == nil {
 		defer db.Close()
 		// ***** BETTER ALGORITHM
 		// FIRST GET THE COUNT OF ROWS, then create a slice of that size and then load into that.
-		const SELECT_QUERY string = "SELECT id, owner_id, title, description, weight, extra, progress, date, duration FROM togos WHERE owner_id=$1 ORDER BY date"
+		const SELECT_QUERY string = "SELECT id, owner_id, title, description, weight, extra, progress, date, duration FROM togos WHERE owner_id=? ORDER BY date"
 		/* if justToday {
 			today := Date{time.Now()}
 			next := Date{today.AddDate(0, 0, 1)}

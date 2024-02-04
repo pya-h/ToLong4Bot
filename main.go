@@ -3,17 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"sync"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	Togo "github.com/pya-h/togo4bot/Togo"
-    chrono "github.com/gochrono/chrono"
-	"context"
-    "time"
-    "bufio"
+	Togo "github.com/pya-h/ToLong4Bot/Togo"
 )
 
 const (
@@ -21,12 +16,6 @@ const (
 	MaximumNumberOfRowItems       = 3
 	NumberOfSeparatorSpaces       = 2
 )
-
-// ---------------------- Telegram Response Struct & Interfaces --------------------------------
-type TelegramBotAPI interface {
-	tgbotapi.BotAPI
-	SendTextMessage(res *http.ResponseWriter)
-}
 
 type TelegramResponse struct {
 	TextMsg            string      `json:"text,omitempty"`
@@ -38,6 +27,14 @@ type TelegramResponse struct {
 	// file/photo?
 }
 
+// ---------------------- Telegram Response Struct & Interfaces --------------------------------
+type TelegramAPIMethods interface {
+	SendTextMessage(response TelegramResponse)
+}
+
+type TelegramBotAPI struct {
+	*tgbotapi.BotAPI
+}
 type ReplyMarkup struct {
 	ResizeKeyboard bool                       `json:"resize_keyboard,omitempty"`
 	OneTime        bool                       `json:"one_time_keyboard,omitempty"`
@@ -51,19 +48,20 @@ type InlineKeyboardMenuItem struct {
 	URL          string `json:"url,omitempty"`
 }
 
-func (self *TelegramBotAPI) SendTextMessage(response TelegramResponse) {
-    
-	msg := tgbotapi.NewMessage(response.TargetChatID, response.TextMsg)
-	msg.ReplyToMessageID =response.MessageRepliedTo
+func (telegramBotAPI *TelegramBotAPI) SendTextMessage(response TelegramResponse) {
 
-	log.Printf("Response %s", string(msg))
-	self.send(msg)
+	msg := tgbotapi.NewMessage(response.TargetChatID, response.TextMsg)
+	msg.ReplyToMessageID = response.MessageRepliedTo
+
+	// log.Printf("Response %s", msg)
+	telegramBotAPI.Send(msg)
 }
 
 func NewTelegramBotAPI(token string) (*TelegramBotAPI, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
-	return &TelegramBotAPI{bot}, err
+	return &TelegramBotAPI{BotAPI: bot}, err
 }
+
 // ---------------------- Callback Structs & Functions --------------------------------
 type UserAction uint8
 
@@ -197,19 +195,19 @@ func Log(update *tgbotapi.Update, values []string) {
 	sendMessage(r)
 }
 
-var mainTaskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
+// var mainTaskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
 
-func autoLoad(togos *Togo.TogoList) {
-	tg, err := Togo.Load(true) // load today's togos,  make(Togo.TogoList, 0)
-	if err != nil {
-		fmt.Println("Loading failed: ", err)
-	}
-	*togos = tg
-	today := time.Now()
-	mainTaskScheduler.Schedule(func(ctx context.Context) { autoLoad(togos) },
-		chrono.WithStartTime(today.Year(), today.Month(), today.Day()+1, 0, 0, 0))
+// func autoLoad(togos *Togo.TogoList, ownerId int64) {
+// 	tg, err := Togo.Load(ownerId, true) // load today's togos,  make(Togo.TogoList, 0)
+// 	if err != nil {
+// 		fmt.Println("Loading failed: ", err)
+// 	}
+// 	*togos = tg
+// 	today := time.Now()
+// 	mainTaskScheduler.Schedule(func(ctx context.Context) { autoLoad(togos, ownerId) },
+// 		chrono.WithStartTime(today.Year(), today.Month(), today.Day()+1, 0, 0, 0))
 
-}
+// }
 
 // ---------------------- Serverless Function ------------------------------
 func main() {
@@ -230,7 +228,7 @@ func main() {
 		err := recover()
 		if err != nil {
 			response.TextMsg = fmt.Sprintln("❌: ", err)
-			response.CallAPI(&res)
+			bot.SendTextMessage(response)
 		}
 	}()
 
@@ -284,7 +282,7 @@ func main() {
 						go func(data string) {
 							defer waiter.Done()
 							sendMessage(data)
-						} (results[i])
+						}(results[i])
 					}
 					response.TextMsg = "✅!"
 				} else {
@@ -350,7 +348,7 @@ func main() {
 			}
 
 		}
-		response.CallAPI(&res)
+		bot.SendTextMessage(response)
 
 	} else if update.CallbackQuery != nil {
 		response.MessageBeingEdited = update.CallbackQuery.Message.MessageID
@@ -393,7 +391,7 @@ func main() {
 				panic(err)
 			}
 		}
-		bot.Send
+		bot.SendTextMessage(response)
 	}
 
 }
