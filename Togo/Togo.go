@@ -58,7 +58,7 @@ func (togo *Togo) Save() uint64 {
 	const CREATE_TABLE_QUERY string = `CREATE TABLE IF NOT EXISTS togos (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id BIGINT NOT NULL,
 	title VARCHAR(64) NOT NULL, description VARCHAR(256), weight INTEGER, extra INTEGER,
 	progress INTEGER, date DATETIME with time zone, duration INTEGER)`
-
+	fmt.Println(CREATE_TABLE_QUERY)
 	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
