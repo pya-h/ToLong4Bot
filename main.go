@@ -212,8 +212,8 @@ func Log(update *tgbotapi.Update, values []string) {
 // ---------------------- Serverless Function ------------------------------
 func main() {
 	var togos Togo.TogoList
-
-	bot, err := NewTelegramBotAPI(os.Getenv("TOKEN"))
+	var token string = os.Getenv("TOKEN")
+	bot, err := NewTelegramBotAPI(token)
 	if err != nil {
 		log.Fatalln(err)
 		return
