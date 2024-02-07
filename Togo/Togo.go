@@ -273,7 +273,6 @@ func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
 	if err != nil {
 		return err
 	}
-
 	defer db.Close()
 
 	if _, err := db.Exec("DELETE FROM togos WHERE id=? AND owner_id=?", togoID, ownerID); err != nil {
@@ -348,7 +347,6 @@ func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
 				togos = togos.Add(&togo)
 			}
 		}
-
 	} else {
 		err = e
 	}
