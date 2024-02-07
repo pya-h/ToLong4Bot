@@ -19,7 +19,9 @@ var lastUsedId uint64 = 0
 // var taskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
 
 // ---------------------- Date/Time Struct & Date Receivers --------------------------------
-type Date struct{ time.Time }
+type Date struct {
+	time.Time
+}
 
 func (d *Date) Get() string {
 
