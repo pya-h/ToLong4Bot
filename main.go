@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	//"github.com/pya-h/togo4bot/Togo"
 	Togo "github.com/pya-h/ToLong4Bot/Togo"
 )
 
@@ -258,6 +258,7 @@ func main() {
 			terms := SplitArguments(update.Message.Text)
 			// Log(&update, terms)
 			numOfTerms := len(terms)
+
 			var now Togo.Date = Togo.Today()
 			for i := 0; i < numOfTerms; i++ {
 				switch terms[i] {
@@ -287,23 +288,19 @@ func main() {
 					} else {
 						results = togos.ToString()
 					}
-					var waiter sync.WaitGroup
-					sendMessage := GetTgBotApiFunction(&update)
+
 					if len(results) > 0 {
 						for i := range results {
-							waiter.Add(1)
 							// newBug: result its not sorted by time
 							// possible fix: collect all togos in a day as single message
-							go func(data string) {
-								defer waiter.Done()
-								sendMessage(data)
-							}(results[i])
+							response.TextMsg = results[i]
+							bot.SendTextMessage(response)
 						}
 						response.TextMsg = "✅!"
 					} else {
 						response.TextMsg = "Nothing!"
 					}
-					waiter.Wait()
+
 				case "%":
 					var target *Togo.TogoList = &togos
 					scope := "Today's"
