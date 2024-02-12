@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+
 	//"github.com/pya-h/togo4bot/Togo"
 	Togo "github.com/pya-h/ToLong4Bot/Togo"
 )
@@ -195,19 +197,31 @@ func Log(update *tgbotapi.Update, values []string) {
 	sendMessage(r)
 }
 
-// var mainTaskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
+func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
+	ticker := time.NewTicker(1 * time.Minute) // everyminute check togos
+	// if a ogo is set on a time equal to now, send telegram notification to that user
+	defer ticker.Stop()
 
-// func autoLoad(togos *Togo.TogoList, ownerId int64) {
-// 	tg, err := Togo.Load(ownerId, true) // load today's togos,  make(Togo.TogoList, 0)
-// 	if err != nil {
-// 		fmt.Println("Loading failed: ", err)
-// 	}
-// 	*togos = tg
-// 	today := time.Now()
-// 	mainTaskScheduler.Schedule(func(ctx context.Context) { autoLoad(togos, ownerId) },
-// 		chrono.WithStartTime(today.Year(), today.Month(), today.Day()+1, 0, 0, 0))
-
-// }
+	for {
+		select {
+		case <-ticker.C:
+			// Put your code here that you want to run every one minute
+			if togos, err := Togo.LoadEverybodysToday(); err == nil {
+				now := Togo.Today()
+				for index, togo := range togos {
+					if togo.Date.Get() == now.Get() {
+						// dates are equal if the string values are equal
+						response := TelegramResponse{TextMsg: togo.ToString(),
+							Method: "sendMessage", TargetChatID: togo.OwnerId} // default method is sendMessage
+						telegramBot.SendTextMessage(response)
+					}
+				}
+			} else {
+				log.Println(err)
+			}
+		}
+	}
+}
 
 // ---------------------- Serverless Function ------------------------------
 func main() {
@@ -245,6 +259,7 @@ func main() {
 		panic(err)
 	}
 	// Let's go through each update that we're getting from Telegram.
+	go bot.NotifyRightNowTogos() // run the scheduler that will check which togos are hapening right now, for each user
 	log.Println("configured.")
 	for update := range updates {
 		// ---------------------- Handling Casual Telegram text Messages ------------------------------

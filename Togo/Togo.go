@@ -338,14 +338,49 @@ func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
 			if err != nil {
 				panic(err)
 			}
-			if togo.Date.Short() == now.Short() {
-				if togo.Date.After(now.Time) {
-					togo.Schedule()
-				}
-				togos = togos.Add(&togo)
-			} else if !justToday {
+			if togo.Date.Short() == now.Short() || !justToday {
 				togos = togos.Add(&togo)
 			}
+		}
+	} else {
+		err = e
+	}
+	return
+}
+
+func LoadEverybodysToday() (togos TogoList, err error) {
+
+	togos = make(TogoList, 0)
+	err = nil
+	if db, e := sql.Open("sqlite3", DATABASE_NAME); e == nil {
+		defer db.Close()
+		const SELECT_QUERY string = "SELECT id, owner_id, title, description, weight, extra, progress, date, duration FROM togos WHERE date BETWEEN ? AND ? ORDER BY date"
+		today := Today()
+
+		rows, e := db.Query(SELECT_QUERY, today.Time, today.AddDate(0, 0, 1))
+		if e != nil {
+			err = e
+			return
+		}
+
+		for rows.Next() {
+			var togo Togo
+			var date time.Time
+
+			err = rows.Scan(&togo.Id, &togo.OwnerId, &togo.Title, &togo.Description, &togo.Weight, &togo.Extra, &togo.Progress, &date, &togo.Duration)
+			if lastUsedId < togo.Id {
+				lastUsedId = togo.Id
+			}
+			if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+				togo.Date = Date{date.In(timeZone)}
+			} else {
+				togo.Date = Date{date}
+			}
+			togo.Duration *= time.Minute
+			if err != nil {
+				panic(err)
+			}
+			togos = togos.Add(&togo)
 		}
 	} else {
 		err = e
