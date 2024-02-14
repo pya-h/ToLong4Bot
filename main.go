@@ -205,11 +205,16 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 	for {
 		select {
 		case <-ticker.C:
+			log.Println("Clock ticked.")
 			// Put your code here that you want to run every one minute
 			if togos, err := Togo.LoadEverybodysToday(); err == nil {
 				now := Togo.Today()
-				for index, togo := range togos {
+				log.Println("Today = ", now, now.Get())
+				log.Println("togos = ", len(togos), togos)
+				for _, togo := range togos {
+					log.Println("Togo date = ", togo.Date.Get(), togo.Date)
 					if togo.Date.Get() == now.Get() {
+						log.Println(togo)
 						// dates are equal if the string values are equal
 						response := TelegramResponse{TextMsg: togo.ToString(),
 							Method: "sendMessage", TargetChatID: togo.OwnerId} // default method is sendMessage
