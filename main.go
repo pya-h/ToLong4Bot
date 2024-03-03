@@ -208,12 +208,11 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 			log.Println("Clock ticked.")
 			// Put your code here that you want to run every one minute
 			if togos, err := Togo.LoadEverybodysToday(); err == nil {
-				now := Togo.Today()
-				log.Println("Today = ", now, now.Get())
+				nextMinute := Togo.Date{Time: Togo.Today().Local().Add(time.Minute * time.Duration(1))}
 				log.Println("togos = ", len(togos), togos)
 				for _, togo := range togos {
 					log.Println("Togo date = ", togo.Date.Get(), togo.Date)
-					if togo.Date.Get() == now.Get() {
+					if togo.Date.Get() == nextMinute.Get() {
 						log.Println(togo)
 						// dates are equal if the string values are equal
 						response := TelegramResponse{TextMsg: togo.ToString(),
@@ -238,16 +237,7 @@ func main() {
 		return
 	}
 	//if update.Message.IsCommand() {
-	response := TelegramResponse{TextMsg: "What?",
-		Method: "sendMessage"} // default method is sendMessage
 
-	defer func() {
-		err := recover()
-		if err != nil {
-			response.TextMsg = fmt.Sprintln("❌: ", err)
-			bot.SendTextMessage(response)
-		}
-	}()
 	// Create a new UpdateConfig struct with an offset of 0. Offsets are used
 	// to make sure Telegram knows we've handled previous values and we don't
 	// need them repeated.
@@ -264,9 +254,18 @@ func main() {
 		panic(err)
 	}
 	// Let's go through each update that we're getting from Telegram.
+	defer func() {
+		err := recover()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 	go bot.NotifyRightNowTogos() // run the scheduler that will check which togos are hapening right now, for each user
 	log.Println("configured.")
 	for update := range updates {
+		response := TelegramResponse{TextMsg: "What?",
+			Method: "sendMessage"} // default method is sendMessage
+
 		// ---------------------- Handling Casual Telegram text Messages ------------------------------
 		if update.Message != nil { // If we got a message
 			response.ReplyMarkup = MainKeyboardMenu() // default keyboard
