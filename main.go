@@ -227,7 +227,6 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 	}
 }
 
-// ---------------------- Serverless Function ------------------------------
 func main() {
 	var togos Togo.TogoList
 	var token string = os.Getenv("TOKEN")

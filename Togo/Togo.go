@@ -32,15 +32,22 @@ func (d *Date) Short() string {
 	return fmt.Sprintf("%d-%d-%d", d.Year(), d.Month(), d.Day())
 }
 
-func Now() time.Time {
-	if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
-		return time.Now().In(timeZone)
-	}
-	return time.Now()
-}
+// func Now() time.Time {
+// if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+// 	return time.Now().In(timeZone)
+// }
+// 	return time.Now()
+// }
 
+func (date *Date) ToLocal() Date {
+	if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+		return Date{date.In(timeZone)}
+	}
+	return *date
+}
 func Today() Date {
-	return Date{Now()}
+	d := Date{time.Now()}
+	return d.ToLocal()
 }
 
 // ---------------------- Togo Struct & Togo Receivers--------------------------------
