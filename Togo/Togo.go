@@ -1,4 +1,4 @@
-package ToLong4Bot
+package ToGo4BotPlus
 
 import (
 	// chrono "github.com/gochrono/chrono"
