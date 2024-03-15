@@ -1,4 +1,4 @@
-package main
+package tests
 
 import (
 	"fmt"
@@ -26,8 +26,12 @@ func (d *Date) Short() string {
 // 	return time.Now()
 // }
 
+func Now() *Date {
+	return &Date{time.Now()}
+}
+
 func Today() Date {
-	return Date{time.Now()}
+	return Now().ToLocal()
 }
 
 func (date *Date) ToLocal() Date {
@@ -49,8 +53,11 @@ func (date *Date) ToLocal2() (res Date) {
 }
 func main() {
 	x := Today()
-	y := x.ToLocal()
-	z := x.ToLocal2()
+	n := Now()
+	fmt.Println(n)
+
+	y := n.ToLocal()
+	z := n.ToLocal2()
 	fmt.Println(x)
 	fmt.Println(y)
 	fmt.Println(z)

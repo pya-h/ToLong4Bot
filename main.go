@@ -10,7 +10,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	//"github.com/pya-h/togo4bot/Togo"
-	Togo "github.com/pya-h/ToLong4Bot/Togo"
+	Togo "github.com/pya-h/ToGo4BotPlus/Togo"
 )
 
 const (

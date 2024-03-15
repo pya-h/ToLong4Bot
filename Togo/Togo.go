@@ -39,15 +39,19 @@ func (d *Date) Short() string {
 // 	return time.Now()
 // }
 
-func (date *Date) ToLocal() Date {
+func (date Date) ToLocal() Date {
 	if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
 		return Date{date.In(timeZone)}
 	}
-	return *date
+	return date
 }
+
+func Now() Date {
+	return Date{time.Now()}
+}
+
 func Today() Date {
-	d := Date{time.Now()}
-	return d.ToLocal()
+	return Now().ToLocal()
 }
 
 // ---------------------- Togo Struct & Togo Receivers--------------------------------
@@ -138,12 +142,12 @@ func (togo *Togo) setFields(terms []string) {
 		case "@":
 			// im++
 			i++
-			today := Now()
+			today := Today()
 			var delta int
 			if _, err := fmt.Sscan(terms[i], &delta); err != nil {
 				panic(err)
 			}
-			today = today.AddDate(0, 0, delta)
+			today = Date{today.AddDate(0, 0, delta)}
 			i++
 			temp := strings.Split(terms[i], ":")
 			var hour, min int
