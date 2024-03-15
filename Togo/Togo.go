@@ -368,7 +368,7 @@ func LoadEverybodysToday() (togos TogoList, err error) {
 		const SELECT_QUERY string = "SELECT id, owner_id, title, description, weight, extra, progress, date, duration FROM togos WHERE date BETWEEN ? AND ? ORDER BY date"
 		today := Today()
 
-		rows, e := db.Query(SELECT_QUERY, today, today.AddDate(0, 0, 1))
+		rows, e := db.Query(SELECT_QUERY, today.Time, today.AddDate(0, 0, 1))
 		if e != nil {
 			err = e
 			return
