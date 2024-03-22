@@ -202,27 +202,21 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 	// if a ogo is set on a time equal to now, send telegram notification to that user
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			log.Println("Clock ticked.")
-			// Put your code here that you want to run every one minute
-			if togos, err := Togo.LoadEverybodysToday(); err == nil {
-				nextMinute := Togo.Date{Time: Togo.Today().Local().Add(time.Minute * time.Duration(1))}
-				log.Println("togos = ", len(togos), togos)
-				for _, togo := range togos {
-					log.Println("Togo date = ", togo.Date.Get(), togo.Date)
-					if togo.Date.Get() == nextMinute.Get() {
-						log.Println(togo)
-						// dates are equal if the string values are equal
-						response := TelegramResponse{TextMsg: togo.ToString(),
-							Method: "sendMessage", TargetChatId: togo.OwnerId} // default method is sendMessage
-						telegramBot.SendTextMessage(response)
-					}
+	for range ticker.C {
+		// Put your code here that you want to run every one minute
+		if togos, err := Togo.LoadEverybodysToday(); err == nil {
+			nextMinute := Togo.Date{Time: Togo.Today().Local().Add(time.Minute * time.Duration(1))}
+			for _, togo := range togos {
+				if togo.Date.Get() == nextMinute.Get() {
+					log.Println(togo)
+					// dates are equal if the string values are equal
+					response := TelegramResponse{TextMsg: togo.ToString(),
+						Method: "sendMessage", TargetChatId: togo.OwnerId} // default method is sendMessage
+					telegramBot.SendTextMessage(response)
 				}
-			} else {
-				log.Println(err)
 			}
+		} else {
+			log.Println(err)
 		}
 	}
 }
