@@ -20,12 +20,13 @@ const (
 )
 
 type TelegramResponse struct {
-	TextMsg            string      `json:"text,omitempty"`
-	TargetChatID       int64       `json:"chat_id"`
-	Method             string      `json:"method"`
-	ReplyMarkup        ReplyMarkup `json:"reply_markup,omitempty"`
-	MessageRepliedTo   int         `json:"reply_to_message_id,omitempty"`
-	MessageBeingEdited int         `json:"message_id,omitempty"` // for edit message & etc
+	TextMsg              string                         `json:"text,omitempty"`
+	TargetChatId         int64                          `json:"chat_id"`
+	Method               string                         `json:"method"`
+	MessageRepliedTo     int                            `json:"reply_to_message_id,omitempty"`
+	MessageBeingEditedId int                            `json:"message_id,omitempty"` // for edit message & etc
+	ReplyMarkup          *tgbotapi.ReplyKeyboardMarkup  `json:"reply_markup,omitempty"`
+	InlineKeyboard       *tgbotapi.InlineKeyboardMarkup `json:"inline_keyboard,omitempty"`
 	// file/photo?
 }
 
@@ -37,25 +38,24 @@ type TelegramAPIMethods interface {
 type TelegramBotAPI struct {
 	*tgbotapi.BotAPI
 }
-type ReplyMarkup struct {
-	ResizeKeyboard bool                       `json:"resize_keyboard,omitempty"`
-	OneTime        bool                       `json:"one_time_keyboard,omitempty"`
-	Keyboard       [][]string                 `json:"keyboard,omitempty"`
-	InlineKeyboard [][]InlineKeyboardMenuItem `json:"inline_keyboard,omitempty"`
-}
-
-type InlineKeyboardMenuItem struct {
-	Text         string `json:"text"`
-	CallbackData string `json:"callback_data,omitempty"`
-	URL          string `json:"url,omitempty"`
-}
 
 func (telegramBotAPI *TelegramBotAPI) SendTextMessage(response TelegramResponse) {
-
-	msg := tgbotapi.NewMessage(response.TargetChatID, response.TextMsg)
+	msg := tgbotapi.NewMessage(response.TargetChatId, response.TextMsg)
 	msg.ReplyToMessageID = response.MessageRepliedTo
+	if response.InlineKeyboard != nil {
+		msg.ReplyMarkup = response.InlineKeyboard
+	} else if response.ReplyMarkup != nil {
+		msg.ReplyMarkup = response.ReplyMarkup
+	}
+	telegramBotAPI.Send(msg)
 
-	// log.Printf("Response %s", msg)
+}
+
+func (telegramBotAPI *TelegramBotAPI) EditTextMessage(response TelegramResponse) {
+	msg := tgbotapi.NewEditMessageText(response.TargetChatId, response.MessageBeingEditedId, response.TextMsg)
+	if response.InlineKeyboard != nil {
+		msg.ReplyMarkup = response.InlineKeyboard
+	}
 	telegramBotAPI.Send(msg)
 }
 
@@ -95,7 +95,7 @@ func LoadCallbackData(jsonString string) (data CallbackData) {
 }
 
 // ---------------------- Telegram Response Related Functions ------------------------------
-func InlineKeyboardMenu(togos Togo.TogoList, action UserAction, allDays bool) (menu ReplyMarkup) {
+func InlineKeyboardMenu(togos Togo.TogoList, action UserAction, allDays bool) (inlineKeyboard *tgbotapi.InlineKeyboardMarkup) {
 	var (
 		count     = len(togos)
 		col       = 0
@@ -105,16 +105,16 @@ func InlineKeyboardMenu(togos Togo.TogoList, action UserAction, allDays bool) (m
 	if count%MaximumNumberOfRowItems != 0 {
 		rowsCount++
 	}
-
-	menu.InlineKeyboard = make([][]InlineKeyboardMenuItem, rowsCount)
+	var menu tgbotapi.InlineKeyboardMarkup
+	menu.InlineKeyboard = make([][]tgbotapi.InlineKeyboardButton, rowsCount)
 
 	for i := range togos {
 		if col == 0 {
 			// calculting the number of column needed in each row
 			if row < rowsCount-1 {
-				menu.InlineKeyboard[row] = make([]InlineKeyboardMenuItem, MaximumNumberOfRowItems)
+				menu.InlineKeyboard[row] = make([]tgbotapi.InlineKeyboardButton, MaximumNumberOfRowItems)
 			} else {
-				menu.InlineKeyboard[row] = make([]InlineKeyboardMenuItem, count-row*MaximumNumberOfRowItems)
+				menu.InlineKeyboard[row] = make([]tgbotapi.InlineKeyboardButton, count-row*MaximumNumberOfRowItems)
 			}
 			row++
 		}
@@ -126,22 +126,27 @@ func InlineKeyboardMenu(togos Togo.TogoList, action UserAction, allDays bool) (m
 		if len(togoTitle) >= MaximumInlineButtonTextLength {
 			togoTitle = fmt.Sprint(togoTitle[:MaximumInlineButtonTextLength], "...")
 		}
-		menu.InlineKeyboard[row-1][col] = InlineKeyboardMenuItem{Text: togoTitle,
-			CallbackData: (CallbackData{Action: action, ID: int64(togos[i].Id), AllDays: allDays}).Json()}
+		data := (CallbackData{Action: action, ID: int64(togos[i].Id), AllDays: allDays}).Json()
+		menu.InlineKeyboard[row-1][col] = tgbotapi.InlineKeyboardButton{Text: togoTitle,
+			CallbackData: &data}
 		col = (col + 1) % MaximumNumberOfRowItems
 	}
+	inlineKeyboard = &menu
 	return
 }
 
-func MainKeyboardMenu() ReplyMarkup {
-	return ReplyMarkup{ResizeKeyboard: true,
-		OneTime:  false,
-		Keyboard: [][]string{{"#", "%"}, {"#  -a", "%  -a"}, {"✅"}, {"❌", "❌  -a"}}}
+func MainKeyboardMenu() *tgbotapi.ReplyKeyboardMarkup {
+	return &tgbotapi.ReplyKeyboardMarkup{ResizeKeyboard: true,
+		OneTimeKeyboard: false,
+		Keyboard: [][]tgbotapi.KeyboardButton{{tgbotapi.KeyboardButton{Text: "#"}, tgbotapi.KeyboardButton{Text: "%"}},
+			{tgbotapi.KeyboardButton{Text: "#  -a"}, tgbotapi.KeyboardButton{Text: "%  -a"}},
+			{tgbotapi.KeyboardButton{Text: "✅"}, tgbotapi.KeyboardButton{Text: "❌"}, tgbotapi.KeyboardButton{Text: "❌  -a"}},
+		}}
 }
 
 // ---------------------- tgbotapi Related Functions ------------------------------
 func GetTgBotApiFunction(update *tgbotapi.Update) func(data string) error {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_TOKEN"))
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
 	return func(data string) error {
 		if err == nil {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, data)
@@ -160,13 +165,8 @@ func LoadForToday(chatId int64, togos *Togo.TogoList) {
 		fmt.Println("Loading failed: ", err)
 	}
 	*togos = tg
-
-	/*
-		today := time.Now()
-		// mainTaskScheduler.Schedule(func(ctx context.Context) { LoadForToday(togos) },
-		// 	chrono.WithStartTime(today.Year(), today.Month(), today.Day()+1, 0, 0, 0))
-	*/
 }
+
 func SplitArguments(statement string) []string {
 	result := make([]string, 0)
 	numOfSpaces := 0
@@ -216,7 +216,7 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 						log.Println(togo)
 						// dates are equal if the string values are equal
 						response := TelegramResponse{TextMsg: togo.ToString(),
-							Method: "sendMessage", TargetChatID: togo.OwnerId} // default method is sendMessage
+							Method: "sendMessage", TargetChatId: togo.OwnerId} // default method is sendMessage
 						telegramBot.SendTextMessage(response)
 					}
 				}
@@ -268,7 +268,7 @@ func main() {
 		// ---------------------- Handling Casual Telegram text Messages ------------------------------
 		if update.Message != nil { // If we got a message
 			response.ReplyMarkup = MainKeyboardMenu() // default keyboard
-			response.TargetChatID = update.Message.Chat.ID
+			response.TargetChatId = update.Message.Chat.ID
 			response.MessageRepliedTo = update.Message.MessageID
 			// log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 			LoadForToday(update.Message.Chat.ID, &togos)
@@ -359,7 +359,7 @@ func main() {
 				// TODO: write Tick command
 				case "✅":
 					response.TextMsg = "Here are your togos for today:"
-					response.ReplyMarkup = InlineKeyboardMenu(togos, TickTogo, false)
+					response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
 				case "❌":
 					if i+1 < numOfTerms && terms[i+1] == "-a" {
 						allTogos, err := Togo.Load(update.Message.Chat.ID, false)
@@ -367,10 +367,10 @@ func main() {
 							panic(err)
 						}
 						response.TextMsg = "Here are your ALL togos:"
-						response.ReplyMarkup = InlineKeyboardMenu(allTogos, RemoveTogo, true)
+						response.InlineKeyboard = InlineKeyboardMenu(allTogos, RemoveTogo, true)
 					} else {
 						response.TextMsg = "Here are your togos for today:"
-						response.ReplyMarkup = InlineKeyboardMenu(togos, RemoveTogo, false)
+						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, false)
 					}
 				case "/now":
 					response.TextMsg = now.Get()
@@ -381,16 +381,16 @@ func main() {
 			bot.SendTextMessage(response)
 
 		} else if update.CallbackQuery != nil {
-			response.MessageBeingEdited = update.CallbackQuery.Message.MessageID
-			response.TargetChatID = update.CallbackQuery.Message.Chat.ID
+			response.MessageBeingEditedId = update.CallbackQuery.Message.MessageID
+			response.TargetChatId = update.CallbackQuery.Message.Chat.ID
 			response.Method = "editMessageText"
 
 			callbackData := LoadCallbackData(update.CallbackQuery.Data)
 			if !callbackData.AllDays {
-				LoadForToday(response.TargetChatID, &togos)
+				LoadForToday(response.TargetChatId, &togos)
 			} else {
 				var err error
-				togos, err = Togo.Load(response.TargetChatID, false)
+				togos, err = Togo.Load(response.TargetChatId, false)
 				if err != nil {
 					panic(err)
 				}
@@ -407,21 +407,21 @@ func main() {
 					} else {
 						(*togo).Progress = 0
 					}
-					(*togo).Update(response.TargetChatID)
-					response.ReplyMarkup = InlineKeyboardMenu(togos, TickTogo, false)
+					(*togo).Update(response.TargetChatId)
+					response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
 					response.TextMsg = "✅ DONE! Now select the next togo you want to tick ..."
 				}
 			case RemoveTogo:
-				err := togos.Remove(response.TargetChatID, uint64(callbackData.ID))
+				err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
 				if err == nil {
 					response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
-					response.ReplyMarkup = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
+					response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
 
 				} else {
 					panic(err)
 				}
 			}
-			bot.SendTextMessage(response)
+			bot.EditTextMessage(response)
 		}
 	}
 }
