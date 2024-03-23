@@ -2,4 +2,4 @@ FROM golang:latest
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod go.sum .env ./
