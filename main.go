@@ -359,8 +359,13 @@ func main() {
 				// TODO: write Tick command
 				case "✅":
 					togos := LoadForToday(update.Message.Chat.ID)
-					response.TextMsg = "Here are your togos for today:"
-					response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
+					if len(togos) > 1 {
+
+						response.TextMsg = "Here are your togos for today:"
+						response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
+					} else {
+						response.TextMsg = "No togos to tick!"
+					}
 				case "❌":
 					var togos Togo.TogoList
 					var err error
@@ -417,8 +422,13 @@ func main() {
 			case RemoveTogo:
 				togos, err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
 				if err == nil {
-					response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
-					response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
+					if len(togos) > 1 {
+
+						response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
+						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
+					} else {
+						response.TextMsg = "❌ DONE! All removed."
+					}
 
 				} else {
 					panic(err)
