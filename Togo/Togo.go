@@ -275,7 +275,7 @@ func (togos *TogoList) RemoveIndex(index int) {
 	} else {
 		list = append(list[:index])
 	}
-	*togos = list[:len(list)-1]
+	*togos = list
 }
 
 func (togos TogoList) Remove(ownerID int64, togoID uint64) error {

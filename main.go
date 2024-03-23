@@ -157,12 +157,12 @@ func GetTgBotApiFunction(update *tgbotapi.Update) func(data string) error {
 }
 
 // ---------------------- Togos Related Functions ------------------------------
-func LoadForToday(chatId int64, togos *Togo.TogoList) {
+func LoadForToday(chatId int64) Togo.TogoList {
 	tg, err := Togo.Load(chatId, true) // load today's togos,  make(Togo.TogoList, 0)
 	if err != nil {
 		fmt.Println("Loading failed: ", err)
 	}
-	*togos = tg
+	return tg
 }
 
 func SplitArguments(statement string) []string {
@@ -219,7 +219,6 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 }
 
 func main() {
-	var togos Togo.TogoList
 	var token string
 
 	defer func() {
@@ -269,11 +268,8 @@ func main() {
 			response.ReplyMarkup = MainKeyboardMenu() // default keyboard
 			response.TargetChatId = update.Message.Chat.ID
 			response.MessageRepliedTo = update.Message.MessageID
-			// log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-			LoadForToday(update.Message.Chat.ID, &togos)
-
 			terms := SplitArguments(update.Message.Text)
-			// Log(&update, terms)
+
 			numOfTerms := len(terms)
 
 			var now Togo.Date = Togo.Today()
@@ -281,7 +277,7 @@ func main() {
 				switch terms[i] {
 				case "+":
 					if numOfTerms > 1 {
-
+						togos := LoadForToday(update.Message.Chat.ID)
 						togo := Togo.Extract(update.Message.Chat.ID, terms[i+1:])
 						togo.Id = togo.Save()
 						if togo.Date.Short() == now.Short() {
@@ -303,6 +299,7 @@ func main() {
 						}
 						results = allTogos.ToString()
 					} else {
+						togos := LoadForToday(update.Message.Chat.ID)
 						results = togos.ToString()
 					}
 
@@ -319,55 +316,63 @@ func main() {
 					}
 
 				case "%":
-					var target *Togo.TogoList = &togos
+					var togos Togo.TogoList
+					var err error
 					scope := "Today's"
 					if i+1 < numOfTerms && terms[i+1] == "-a" {
-						allTogos, err := Togo.Load(update.Message.Chat.ID, false)
+						togos, err = Togo.Load(update.Message.Chat.ID, false)
 						if err != nil {
 							panic(err)
 						}
-						target = &allTogos
 						scope = "Total"
+					} else {
+						togos = LoadForToday(update.Message.Chat.ID)
 					}
-					progress, completedInPercent, completed, extra, total := (*target).ProgressMade()
+					progress, completedInPercent, completed, extra, total := togos.ProgressMade()
 					response.TextMsg = fmt.Sprintf("%s Progress: %3.2f%% \n%3.2f%% Completed\nStatistics: %d / %d",
 						scope, progress, completedInPercent, completed, total)
 					if extra > 0 {
 						response.TextMsg = fmt.Sprintf("%s[+%d]\n", response.TextMsg, extra)
 					}
 				case "$":
+					var togos Togo.TogoList
+					var err error
 					// set or update a togo
 					if i+1 < numOfTerms {
 						if terms[i+1] == "-a" {
 							if i+2 < numOfTerms {
-								allTogos, err := Togo.Load(update.Message.Chat.ID, false)
+								togos, err = Togo.Load(update.Message.Chat.ID, false)
 								if err != nil {
 									panic(err)
 								}
-								response.TextMsg = allTogos.Update(update.Message.Chat.ID, terms[i+2:])
+								response.TextMsg = togos.Update(update.Message.Chat.ID, terms[i+2:])
 							} else {
 								response.TextMsg = "You must provide at least one Parameters!"
 							}
 						} else {
+							togos = LoadForToday(update.Message.Chat.ID)
 							response.TextMsg = togos.Update(update.Message.Chat.ID, terms[i+1:])
-
 						}
 					} else {
 						response.TextMsg = "You must provide at least one Parameters!"
 					}
 				// TODO: write Tick command
 				case "✅":
+					togos := LoadForToday(update.Message.Chat.ID)
 					response.TextMsg = "Here are your togos for today:"
 					response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
 				case "❌":
+					var togos Togo.TogoList
+					var err error
 					if i+1 < numOfTerms && terms[i+1] == "-a" {
-						allTogos, err := Togo.Load(update.Message.Chat.ID, false)
+						togos, err = Togo.Load(update.Message.Chat.ID, false)
 						if err != nil {
 							panic(err)
 						}
 						response.TextMsg = "Here are your ALL togos:"
-						response.InlineKeyboard = InlineKeyboardMenu(allTogos, RemoveTogo, true)
+						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, true)
 					} else {
+						togos = LoadForToday(update.Message.Chat.ID)
 						response.TextMsg = "Here are your togos for today:"
 						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, false)
 					}
@@ -380,12 +385,12 @@ func main() {
 			bot.SendTextMessage(response)
 
 		} else if update.CallbackQuery != nil {
+			var togos Togo.TogoList
 			response.MessageBeingEditedId = update.CallbackQuery.Message.MessageID
 			response.TargetChatId = update.CallbackQuery.Message.Chat.ID
-
 			callbackData := LoadCallbackData(update.CallbackQuery.Data)
 			if !callbackData.AllDays {
-				LoadForToday(response.TargetChatId, &togos)
+				togos = LoadForToday(response.TargetChatId)
 			} else {
 				var err error
 				togos, err = Togo.Load(response.TargetChatId, false)
@@ -411,6 +416,7 @@ func main() {
 				}
 			case RemoveTogo:
 				err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
+				response.TextMsg = fmt.Sprintln(response.TextMsg, "\n", len(togos))
 				if err == nil {
 					response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
 					response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
