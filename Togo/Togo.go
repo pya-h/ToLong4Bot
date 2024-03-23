@@ -271,7 +271,7 @@ func (togos TogoList) Update(chatID int64, terms []string) string {
 func (togos TogoList) RemoveIndex(index int) TogoList {
 	count := len(togos)
 	if count-1 > index {
-		return append(togos[:index], togos[index+1])
+		return append(togos[:index], togos[index+1:]...)
 	}
 	if count == 1 {
 		return make(TogoList, 0)
