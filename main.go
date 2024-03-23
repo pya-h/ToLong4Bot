@@ -415,7 +415,7 @@ func main() {
 					response.TextMsg = "✅ DONE! Now select the next togo you want to tick ..."
 				}
 			case RemoveTogo:
-				err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
+				togos, err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
 				if err == nil {
 					response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
 					response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
@@ -423,7 +423,6 @@ func main() {
 				} else {
 					panic(err)
 				}
-				response.TextMsg = fmt.Sprintln(response.TextMsg, "\n", len(togos))
 			}
 			bot.EditTextMessage(response)
 		}

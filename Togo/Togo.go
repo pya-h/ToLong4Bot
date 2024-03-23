@@ -268,35 +268,34 @@ func (togos TogoList) Update(chatID int64, terms []string) string {
 
 	return togos[targetIdx].ToString()
 }
-func (togos *TogoList) RemoveIndex(index int) TogoList {
-	count := len(*togos)
+func (togos TogoList) RemoveIndex(index int) TogoList {
+	count := len(togos)
 	if count > index {
-		return append((*togos)[:index], (*togos)[index+1])
+		return append(togos[:index], togos[index+1])
 	}
 	if count == 1 {
 		return make(TogoList, 0)
 	}
-	return append((*togos)[:index])
+	return append(togos[:index])
 }
 
-func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
+func (togos TogoList) Remove(ownerID int64, togoID uint64) (TogoList, error) {
 	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer db.Close()
 
 	if _, err := db.Exec("DELETE FROM togos WHERE id=? AND owner_id=?", togoID, ownerID); err != nil {
-		return err
+		return nil, err
 	}
 	for i := range togos {
 		if togos[i].Id == togoID && togos[i].OwnerId == ownerID {
-			togos = togos.RemoveIndex(i)
-			break
+			return togos.RemoveIndex(i), nil
 		}
 	}
-	return nil
+	return nil, errors.New("no such togo found")
 }
 
 func (togos TogoList) Get(togoID uint64) (*Togo, error) {
