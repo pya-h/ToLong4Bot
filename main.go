@@ -8,8 +8,7 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-
-	//"github.com/pya-h/togo4bot/Togo"
+	godotenv "github.com/joho/godotenv"
 	Togo "github.com/pya-h/ToGo4BotPlus/Togo"
 )
 
@@ -22,7 +21,6 @@ const (
 type TelegramResponse struct {
 	TextMsg              string                         `json:"text,omitempty"`
 	TargetChatId         int64                          `json:"chat_id"`
-	Method               string                         `json:"method"`
 	MessageRepliedTo     int                            `json:"reply_to_message_id,omitempty"`
 	MessageBeingEditedId int                            `json:"message_id,omitempty"` // for edit message & etc
 	ReplyMarkup          *tgbotapi.ReplyKeyboardMarkup  `json:"reply_markup,omitempty"`
@@ -210,8 +208,7 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 				if togo.Date.Get() == nextMinute.Get() {
 					log.Println(togo)
 					// dates are equal if the string values are equal
-					response := TelegramResponse{TextMsg: togo.ToString(),
-						Method: "sendMessage", TargetChatId: togo.OwnerId} // default method is sendMessage
+					response := TelegramResponse{TextMsg: togo.ToString(), TargetChatId: togo.OwnerId} // default method is sendMessage
 					telegramBot.SendTextMessage(response)
 				}
 			}
@@ -223,7 +220,21 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 
 func main() {
 	var togos Togo.TogoList
-	var token string = os.Getenv("TOKEN")
+	var token string
+
+	defer func() {
+		err := recover()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	if env, err := godotenv.Read(".env"); err != nil {
+		panic(err)
+	} else {
+		token = env["TOKEN"]
+	}
+	log.Println(token)
 	bot, err := NewTelegramBotAPI(token)
 	if err != nil {
 		log.Fatalln(err)
@@ -247,17 +258,11 @@ func main() {
 		panic(err)
 	}
 	// Let's go through each update that we're getting from Telegram.
-	defer func() {
-		err := recover()
-		if err != nil {
-			log.Println(err)
-		}
-	}()
+
 	go bot.NotifyRightNowTogos() // run the scheduler that will check which togos are hapening right now, for each user
 	log.Println("configured.")
 	for update := range updates {
-		response := TelegramResponse{TextMsg: "What?",
-			Method: "sendMessage"} // default method is sendMessage
+		response := TelegramResponse{TextMsg: "What?"}
 
 		// ---------------------- Handling Casual Telegram text Messages ------------------------------
 		if update.Message != nil { // If we got a message
@@ -377,7 +382,6 @@ func main() {
 		} else if update.CallbackQuery != nil {
 			response.MessageBeingEditedId = update.CallbackQuery.Message.MessageID
 			response.TargetChatId = update.CallbackQuery.Message.Chat.ID
-			response.Method = "editMessageText"
 
 			callbackData := LoadCallbackData(update.CallbackQuery.Data)
 			if !callbackData.AllDays {
