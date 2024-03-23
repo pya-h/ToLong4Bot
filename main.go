@@ -233,7 +233,7 @@ func main() {
 	} else {
 		token = env["TOKEN"]
 	}
-	log.Println(token)
+
 	bot, err := NewTelegramBotAPI(token)
 	if err != nil {
 		log.Fatalln(err)
