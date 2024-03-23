@@ -268,17 +268,15 @@ func (togos TogoList) Update(chatID int64, terms []string) string {
 
 	return togos[targetIdx].ToString()
 }
-func (togos *TogoList) RemoveIndex(index int) {
-	list := *togos
-	count := len(list)
+func (togos *TogoList) RemoveIndex(index int) TogoList {
+	count := len(*togos)
 	if count > index {
-		list = append(list[:index], list[index+1])
-	} else if count == 1 {
-		list = make(TogoList, 0)
-	} else {
-		list = append(list[:index])
+		return append((*togos)[:index], (*togos)[index+1])
 	}
-	*togos = list
+	if count == 1 {
+		return make(TogoList, 0)
+	}
+	return append((*togos)[:index])
 }
 
 func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
@@ -294,7 +292,7 @@ func (togos TogoList) Remove(ownerID int64, togoID uint64) error {
 	}
 	for i := range togos {
 		if togos[i].Id == togoID && togos[i].OwnerId == ownerID {
-			togos.RemoveIndex(i)
+			togos = togos.RemoveIndex(i)
 			break
 		}
 	}
