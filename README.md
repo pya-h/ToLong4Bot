@@ -3,11 +3,11 @@
     With many extra features and Memory/Performance & Coding optimization.
     This bot application is running on Vercel as a Serverless Function bot.
 # Language: GO
+# Main changes vs previous togo4bot:
+* Changed the mechanism from serverless function to longpolling.
+* Added notification system for current togos, notifying users one minute before each togo start time.
 # Link
     running on https://t.me/togo4plusbot
-# Main changes vs previous togo4bot:
-* Changed the mechanism from serverless function to longpulling.
-* Added notification system for current togos, notifying users one minute before each togo start time.
 
 # Notes:
 * Here command/param seperator is 2 SPACES (because telegram doesnt have a specific tab character)
