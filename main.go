@@ -203,10 +203,10 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 	for range ticker.C {
 		// Put your code here that you want to run every one minute
 		if togos, err := Togo.LoadEverybodysToday(); err == nil {
-			nextMinute := Togo.Date{Time: Togo.Today().Local().Add(time.Minute * time.Duration(1))}
+			nextMinute := (Togo.Date{Time: Togo.Today().Add(time.Minute * time.Duration(1))}).ToLocal()
+
 			for _, togo := range togos {
 				if togo.Date.Get() == nextMinute.Get() {
-					log.Println(togo)
 					// dates are equal if the string values are equal
 					response := TelegramResponse{TextMsg: togo.ToString(), TargetChatId: togo.OwnerId} // default method is sendMessage
 					telegramBot.SendTextMessage(response)
@@ -281,7 +281,7 @@ func main() {
 						togo := Togo.Extract(update.Message.Chat.ID, terms[i+1:])
 						togo.Id = togo.Save()
 						if togo.Date.Short() == now.Short() {
-							togos = togos.Add(&togo)
+							_ = togos.Add(&togo)
 							if togo.Date.After(now.Time) {
 								togo.Schedule()
 							}
