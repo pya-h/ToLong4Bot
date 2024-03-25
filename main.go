@@ -295,7 +295,9 @@ func main() {
 					if i+1 < numOfTerms && terms[i+1] == "-a" {
 						allTogos, err := Togo.Load(update.Message.Chat.ID, false)
 						if err != nil {
-							panic(err)
+							log.Println(err)
+							response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+							bot.SendTextMessage(response)
 						}
 						results = allTogos.ToString()
 					} else {
@@ -322,7 +324,9 @@ func main() {
 					if i+1 < numOfTerms && terms[i+1] == "-a" {
 						togos, err = Togo.Load(update.Message.Chat.ID, false)
 						if err != nil {
-							panic(err)
+							log.Println(err)
+							response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+							bot.SendTextMessage(response)
 						}
 						scope = "Total"
 					} else {
@@ -343,7 +347,9 @@ func main() {
 							if i+2 < numOfTerms {
 								togos, err = Togo.Load(update.Message.Chat.ID, false)
 								if err != nil {
-									panic(err)
+									log.Println(err)
+									response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+									bot.SendTextMessage(response)
 								}
 								response.TextMsg = togos.Update(update.Message.Chat.ID, terms[i+2:])
 							} else {
@@ -372,7 +378,9 @@ func main() {
 					if i+1 < numOfTerms && terms[i+1] == "-a" {
 						togos, err = Togo.Load(update.Message.Chat.ID, false)
 						if err != nil {
-							panic(err)
+							log.Println(err)
+							response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+							bot.SendTextMessage(response)
 						}
 						response.TextMsg = "Here are your ALL togos:"
 						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, true)
@@ -400,7 +408,9 @@ func main() {
 				var err error
 				togos, err = Togo.Load(response.TargetChatId, false)
 				if err != nil {
-					panic(err)
+					log.Println(err)
+					response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+					bot.SendTextMessage(response)
 				}
 			}
 
@@ -408,7 +418,9 @@ func main() {
 			case TickTogo:
 				togo, err := togos.Get(uint64(callbackData.ID))
 				if err != nil {
-					panic(err)
+					log.Println(err)
+					response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+					bot.SendTextMessage(response)
 				} else {
 					if (*togo).Progress < 100 {
 						(*togo).Progress = 100
@@ -431,7 +443,9 @@ func main() {
 					}
 
 				} else {
-					panic(err)
+					log.Println(err)
+					response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+					bot.SendTextMessage(response)
 				}
 			}
 			bot.EditTextMessage(response)

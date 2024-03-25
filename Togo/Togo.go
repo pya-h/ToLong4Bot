@@ -14,8 +14,6 @@ import (
 
 const DATABASE_NAME string = "./togos.db"
 
-var lastUsedId uint64 = 0
-
 // var taskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
 
 // ---------------------- Date/Time Struct & Date Receivers --------------------------------
@@ -33,15 +31,15 @@ func (d *Date) Short() string {
 }
 
 // func Now() time.Time {
-// if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
-// 	return time.Now().In(timeZone)
+// if timezone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+// 	return time.Now().In(timezone)
 // }
 // 	return time.Now()
 // }
 
 func (date Date) ToLocal() Date {
-	if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
-		return Date{date.In(timeZone)}
+	if timezone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+		return Date{date.In(timezone)}
 	}
 	return date
 }
@@ -67,7 +65,7 @@ type Togo struct {
 	OwnerId     int64 // telegram id
 }
 
-func (togo *Togo) Save() uint64 {
+func (togo *Togo) Save() (uint64, error) {
 	const CREATE_TABLE_QUERY string = `CREATE TABLE IF NOT EXISTS togos (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id BIGINT NOT NULL,
 	title VARCHAR(64) NOT NULL, description VARCHAR(1024), weight INTEGER, extra INTEGER,
 	progress INTEGER, date DATETIME, duration INTEGER)`
@@ -75,11 +73,11 @@ func (togo *Togo) Save() uint64 {
 	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	defer db.Close()
 	if _, err := db.Exec(CREATE_TABLE_QUERY); err != nil {
-		panic(err)
+		return 0, err
 	}
 	extra := 0
 	if togo.Extra {
@@ -88,32 +86,18 @@ func (togo *Togo) Save() uint64 {
 	if res, err := db.Exec("INSERT INTO togos (owner_id, title, description, weight, extra, progress, date, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		togo.OwnerId, togo.Title, togo.Description, togo.Weight, extra, togo.Progress,
 		togo.Date.Time, togo.Duration.Minutes()); err != nil {
-		panic(err)
+		return 0, err
 	} else if id, e := res.LastInsertId(); e == nil {
-		return uint64(id)
+		return uint64(id), nil
 	}
-	return 0
-}
-
-func (togo *Togo) Schedule() {
-	/*_, err := taskScheduler.Schedule(func(ctx context.Context) {
-		fmt.Println("\nYour Next Togo:\n", togo.ToString(), "\n> ")
-		fmt.Print()
-	}, chrono.WithTime(togo.Date.Time))
-
-	if err != nil {
-		panic(err)
-	} else {
-		// log.Println("Togo: ", togo.Title, " Successfully scheduled for: ", togo.Date.Get())
-	}*/
-
+	return 0, errors.New("bot couldn't save this togo due to unknown reason")
 }
 
 func isCommand(term string) bool {
 	return term == "+" || term == "%" || term == "#" || term == "$"
 }
 
-func (togo *Togo) setFields(terms []string) {
+func (togo *Togo) setFields(terms []string) error {
 	numOfTerms := len(terms)
 	for i := 1; i < numOfTerms && !isCommand(terms[i]); i++ {
 		switch terms[i] {
@@ -121,7 +105,7 @@ func (togo *Togo) setFields(terms []string) {
 			i++
 
 			if _, err := fmt.Sscan(terms[i], &togo.Weight); err != nil {
-				panic(err)
+				return err
 			}
 
 		case ":", "+d":
@@ -135,7 +119,7 @@ func (togo *Togo) setFields(terms []string) {
 			i++
 
 			if _, err := fmt.Sscan(terms[i], &togo.Progress); err != nil {
-				panic(err)
+				return err
 			} else if togo.Progress > 100 {
 				togo.Progress = 100
 			}
@@ -145,21 +129,21 @@ func (togo *Togo) setFields(terms []string) {
 			today := Today()
 			var delta int
 			if _, err := fmt.Sscan(terms[i], &delta); err != nil {
-				panic(err)
+				return err
 			}
 			today = Date{today.AddDate(0, 0, delta)}
 			i++
 			temp := strings.Split(terms[i], ":")
 			var hour, min int
 			if _, err := fmt.Sscan(temp[0], &hour); err != nil {
-				panic(err)
+				return err
 			} else if hour >= 24 || hour < 0 {
-				panic("Hour part must be between 0 and 23!")
+				return errors.New("hour part must be between 0 and 23")
 			}
 			if _, err := fmt.Sscan(temp[1], &min); err != nil {
-				panic(err)
+				return err
 			} else if min >= 60 || min < 0 {
-				panic("Minute part must be between 0 and 59!")
+				return errors.New("minute part must be between 0 and 59")
 			}
 			if locale, err := time.LoadLocation("Asia/Tehran"); err == nil {
 
@@ -172,23 +156,23 @@ func (togo *Togo) setFields(terms []string) {
 		case "->":
 			i++
 			if _, err := fmt.Sscan(terms[i], &togo.Duration); err != nil {
-				panic(err)
+				return err
 			} else if togo.Duration > 0 {
 				togo.Duration *= time.Minute
 			} else {
-				panic("Duration must be positive integer!")
+				return errors.New("duration must be positive integer")
 			}
 		}
 
 	}
-
+	return nil
 }
 
-func (togo *Togo) Update(ownerID int64) {
+func (togo *Togo) Update(ownerID int64) error {
 	db, err := sql.Open("sqlite3", DATABASE_NAME)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer db.Close()
 
@@ -198,8 +182,9 @@ func (togo *Togo) Update(ownerID int64) {
 	}
 	if _, err := db.Exec("UPDATE togos SET description=?, weight=?, extra=?, progress=?, date=?, duration=? WHERE id=? AND owner_id=?", // TODO: check ownerId? (no need)
 		togo.Description, togo.Weight, extra, togo.Progress, togo.Date.Time, togo.Duration.Minutes(), togo.Id, ownerID); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 func (togo *Togo) ToString() string {
@@ -244,10 +229,10 @@ func (togos TogoList) ProgressMade() (progress float64, completedInPercent float
 	return
 }
 
-func (togos TogoList) Update(chatID int64, terms []string) string {
+func (togos TogoList) Update(chatID int64, terms []string) (string, error) {
 	var id uint64
 	if _, err := fmt.Sscan(terms[0], &id); err != nil {
-		panic(err)
+		return "", err
 	}
 	targetIdx := -1
 	// TODO: use simple version of FOR
@@ -258,7 +243,7 @@ func (togos TogoList) Update(chatID int64, terms []string) string {
 		}
 	}
 	if targetIdx < 0 {
-		return "There is no togo with this Id!"
+		return "", errors.New("there is no togo with this Id")
 	}
 	if len(terms) > 1 && !isCommand(terms[1]) {
 
@@ -266,8 +251,9 @@ func (togos TogoList) Update(chatID int64, terms []string) string {
 		togos[targetIdx].Update(chatID)
 	}
 
-	return togos[targetIdx].ToString()
+	return togos[targetIdx].ToString(), nil
 }
+
 func (togos TogoList) RemoveIndex(index int) TogoList {
 	count := len(togos)
 	if count-1 > index {
@@ -310,7 +296,7 @@ func (togos TogoList) Get(togoID uint64) (*Togo, error) {
 
 // ---------------------- Shared Functions --------------------------------
 func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
-
+	currupted_rows := 0
 	togos = make(TogoList, 0)
 	err = nil
 	if db, e := sql.Open("sqlite3", DATABASE_NAME); e == nil {
@@ -337,17 +323,15 @@ func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
 			var date time.Time
 
 			err = rows.Scan(&togo.Id, &togo.OwnerId, &togo.Title, &togo.Description, &togo.Weight, &togo.Extra, &togo.Progress, &date, &togo.Duration)
-			if lastUsedId < togo.Id {
-				lastUsedId = togo.Id
-			}
-			if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
-				togo.Date = Date{date.In(timeZone)}
+			if timezone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+				togo.Date = Date{date.In(timezone)}
 			} else {
 				togo.Date = Date{date}
 			}
 			togo.Duration *= time.Minute
 			if err != nil {
-				panic(err)
+				currupted_rows++
+				continue
 			}
 			if togo.Date.Short() == now.Short() || !justToday {
 				togos = togos.Add(&togo)
@@ -356,22 +340,25 @@ func Load(ownerId int64, justToday bool) (togos TogoList, err error) {
 	} else {
 		err = e
 	}
+
+	if currupted_rows > 0 {
+		err = errors.New(fmt.Sprint("bot couldn't read ", currupted_rows, " togos from database because their data seem currupted"))
+	}
 	return
 }
 
-func LoadEverybodysToday() (togos TogoList, err error) {
+func LoadEverybodysToday() (TogoList, error) {
 
-	togos = make(TogoList, 0)
-	err = nil
-	if db, e := sql.Open("sqlite3", DATABASE_NAME); e == nil {
+	togos := make(TogoList, 0)
+	currupted_rows := 0
+	if db, err := sql.Open("sqlite3", DATABASE_NAME); err == nil {
 		defer db.Close()
 		const SELECT_QUERY string = "SELECT id, owner_id, title, description, weight, extra, progress, date, duration FROM togos WHERE date BETWEEN ? AND ? ORDER BY date"
 		today := Today()
 
-		rows, e := db.Query(SELECT_QUERY, today.Time, today.AddDate(0, 0, 1))
-		if e != nil {
-			err = e
-			return
+		rows, err := db.Query(SELECT_QUERY, today.Time, today.AddDate(0, 0, 1))
+		if err != nil {
+			return nil, err
 		}
 
 		for rows.Next() {
@@ -379,24 +366,29 @@ func LoadEverybodysToday() (togos TogoList, err error) {
 			var date time.Time
 
 			err = rows.Scan(&togo.Id, &togo.OwnerId, &togo.Title, &togo.Description, &togo.Weight, &togo.Extra, &togo.Progress, &date, &togo.Duration)
-			if lastUsedId < togo.Id {
-				lastUsedId = togo.Id
+			if err != nil {
+				currupted_rows++
+				continue
 			}
-			if timeZone, err := time.LoadLocation("Asia/Tehran"); err == nil {
-				togo.Date = Date{date.In(timeZone)}
+
+			if timezone, err := time.LoadLocation("Asia/Tehran"); err == nil {
+				togo.Date = Date{date.In(timezone)}
 			} else {
 				togo.Date = Date{date}
 			}
 			togo.Duration *= time.Minute
-			if err != nil {
-				panic(err)
-			}
+
 			togos = togos.Add(&togo)
 		}
 	} else {
-		err = e
+		return nil, err
 	}
-	return
+	var warning error = nil
+
+	if currupted_rows > 0 {
+		warning = errors.New(fmt.Sprint("bot couldn't read ", currupted_rows, " togos from database because their data seem currupted"))
+	}
+	return togos, warning
 }
 
 func Extract(ownerId int64, terms []string) (togo Togo) {
