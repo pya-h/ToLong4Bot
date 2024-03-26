@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -92,6 +93,9 @@ func LoadCallbackData(jsonString string) (data CallbackData) {
 	return
 }
 
+// ---------------------- Global Vars --------------------------------
+var env map[string]string
+
 // ---------------------- Telegram Response Related Functions ------------------------------
 func InlineKeyboardMenu(togos Togo.TogoList, action UserAction, allDays bool) (inlineKeyboard *tgbotapi.InlineKeyboardMarkup) {
 	var (
@@ -156,15 +160,6 @@ func GetTgBotApiFunction(update *tgbotapi.Update) func(data string) error {
 	}
 }
 
-// ---------------------- Togos Related Functions ------------------------------
-func LoadForToday(chatId int64) Togo.TogoList {
-	tg, err := Togo.Load(chatId, true) // load today's togos,  make(Togo.TogoList, 0)
-	if err != nil {
-		fmt.Println("Loading failed: ", err)
-	}
-	return tg
-}
-
 func SplitArguments(statement string) []string {
 	result := make([]string, 0)
 	numOfSpaces := 0
@@ -195,14 +190,34 @@ func Log(update *tgbotapi.Update, values []string) {
 	sendMessage(r)
 }
 
+func (telegramBot *TelegramBotAPI) InformAdmin(news string) {
+	if admin_id, err := strconv.Atoi(env["ADMIN_ID"]); err == nil {
+		response := TelegramResponse{TextMsg: news, TargetChatId: int64(admin_id)} // default method is sendMessage
+		telegramBot.SendTextMessage(response)
+	} else {
+		log.Println("Cannot get admin id to inform him/her; news is: ", news)
+	}
+}
+
 func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 	ticker := time.NewTicker(1 * time.Minute) // everyminute check togos
 	// if a ogo is set on a time equal to now, send telegram notification to that user
 	defer ticker.Stop()
-
+	notified_about_curroption := false
+	notified_about_load_problem := false
 	for range ticker.C {
 		// Put your code here that you want to run every one minute
-		if togos, err := Togo.LoadEverybodysToday(); err == nil {
+		if togos, err := Togo.LoadEverybodysToday(); togos != nil {
+			notified_about_load_problem = false
+			if err != nil {
+				if !notified_about_curroption {
+					notified_about_curroption = true
+
+					telegramBot.InformAdmin(fmt.Sprintln(err.Error(), "; this means the notification may encounter some problems on notifying some togos."))
+				}
+			} else {
+				notified_about_curroption = false
+			}
 			nextMinute := (Togo.Date{Time: Togo.Today().Add(time.Minute * time.Duration(1))}).ToLocal()
 
 			for _, togo := range togos {
@@ -213,7 +228,10 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 				}
 			}
 		} else {
-			log.Println(err)
+			if !notified_about_load_problem {
+				notified_about_load_problem = true
+				telegramBot.InformAdmin(err.Error())
+			}
 		}
 	}
 }
@@ -221,25 +239,26 @@ func (telegramBot *TelegramBotAPI) NotifyRightNowTogos() {
 func main() {
 	var token string
 
+	env = nil
+
+	if envFile, err := godotenv.Read(".env"); err != nil {
+		panic(err)
+	} else {
+		env = envFile
+		token = env["TOKEN"]
+	}
+
+	bot, err := NewTelegramBotAPI(token)
+	if err != nil {
+		panic(err)
+	}
+
 	defer func() {
 		err := recover()
 		if err != nil {
 			log.Println(err)
 		}
 	}()
-
-	if env, err := godotenv.Read(".env"); err != nil {
-		panic(err)
-	} else {
-		token = env["TOKEN"]
-	}
-
-	bot, err := NewTelegramBotAPI(token)
-	if err != nil {
-		log.Fatalln(err)
-		return
-	}
-	//if update.Message.IsCommand() {
 
 	// Create a new UpdateConfig struct with an offset of 0. Offsets are used
 	// to make sure Telegram knows we've handled previous values and we don't
@@ -277,34 +296,28 @@ func main() {
 				switch terms[i] {
 				case "+":
 					if numOfTerms > 1 {
-						togos := LoadForToday(update.Message.Chat.ID)
+						var err error
 						togo := Togo.Extract(update.Message.Chat.ID, terms[i+1:])
-						togo.Id = togo.Save()
-						if togo.Date.Short() == now.Short() {
-							_ = togos.Add(&togo)
-							if togo.Date.After(now.Time) {
-								togo.Schedule()
-							}
+						if togo.Id, err = togo.Save(); err == nil {
+
+							response.TextMsg = fmt.Sprint(now.Get(), ": DONE!")
+						} else {
+							response.TextMsg = err.Error()
 						}
-						response.TextMsg = fmt.Sprint(now.Get(), ": DONE!")
 					} else {
 						response.TextMsg = "You must provide at least one Parameters!"
 					}
 				case "#":
 					var results []string
-					if i+1 < numOfTerms && terms[i+1] == "-a" {
-						allTogos, err := Togo.Load(update.Message.Chat.ID, false)
-						if err != nil {
-							log.Println(err)
-							response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
-							bot.SendTextMessage(response)
-						}
-						results = allTogos.ToString()
-					} else {
-						togos := LoadForToday(update.Message.Chat.ID)
-						results = togos.ToString()
-					}
+					all_days := i+1 < numOfTerms && terms[i+1] == "-a"
 
+					togos, warning := Togo.Load(update.Message.Chat.ID, !all_days)
+					if togos == nil {
+						log.Println(warning)
+						response.TextMsg = warning.Error()
+						bot.SendTextMessage(response)
+					}
+					results = togos.ToString()
 					if len(results) > 0 {
 						for i := range results {
 							// newBug: result its not sorted by time
@@ -312,31 +325,39 @@ func main() {
 							response.TextMsg = results[i]
 							bot.SendTextMessage(response)
 						}
-						response.TextMsg = "✅!"
+						if warning == nil {
+							response.TextMsg = "✅!"
+						} else {
+							response.TextMsg = warning.Error()
+						}
 					} else {
 						response.TextMsg = "Nothing!"
 					}
 
 				case "%":
 					var togos Togo.TogoList
-					var err error
-					scope := "Today's"
-					if i+1 < numOfTerms && terms[i+1] == "-a" {
-						togos, err = Togo.Load(update.Message.Chat.ID, false)
-						if err != nil {
-							log.Println(err)
-							response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
-							bot.SendTextMessage(response)
-						}
-						scope = "Total"
+					var warning error
+					all_days := i+1 < numOfTerms && terms[i+1] == "-a"
+
+					togos, warning = Togo.Load(update.Message.Chat.ID, !all_days)
+					if togos == nil {
+						log.Println(warning.Error)
+						response.TextMsg = warning.Error()
+						bot.SendTextMessage(response)
 					} else {
-						togos = LoadForToday(update.Message.Chat.ID)
-					}
-					progress, completedInPercent, completed, extra, total := togos.ProgressMade()
-					response.TextMsg = fmt.Sprintf("%s Progress: %3.2f%% \n%3.2f%% Completed\nStatistics: %d / %d",
-						scope, progress, completedInPercent, completed, total)
-					if extra > 0 {
-						response.TextMsg = fmt.Sprintf("%s[+%d]\n", response.TextMsg, extra)
+						progress, completedInPercent, completed, extra, total := togos.ProgressMade()
+						scope := "Today's"
+						if all_days {
+							scope = "Total"
+						}
+						response.TextMsg = fmt.Sprintf("%s Progress: %3.2f%% \n%3.2f%% Completed\nStatistics: %d / %d\n",
+							scope, progress, completedInPercent, completed, total)
+						if extra > 0 {
+							response.TextMsg = fmt.Sprintf("%s[+%d]\n", response.TextMsg, extra)
+						}
+						if warning != nil {
+							response.TextMsg = fmt.Sprintln(response.TextMsg, "- - - - - - - - - - - - - - - - - - - - - - \nwarning: ", warning.Error())
+						}
 					}
 				case "$":
 					var togos Togo.TogoList
@@ -348,46 +369,77 @@ func main() {
 								togos, err = Togo.Load(update.Message.Chat.ID, false)
 								if err != nil {
 									log.Println(err)
-									response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
+									response.TextMsg = err.Error()
 									bot.SendTextMessage(response)
 								}
-								response.TextMsg = togos.Update(update.Message.Chat.ID, terms[i+2:])
+								if resp, err := togos.Update(update.Message.Chat.ID, terms[i+2:]); err == nil {
+									response.TextMsg = resp
+								} else {
+									response.TextMsg = err.Error()
+								}
 							} else {
 								response.TextMsg = "You must provide at least one Parameters!"
 							}
 						} else {
-							togos = LoadForToday(update.Message.Chat.ID)
-							response.TextMsg = togos.Update(update.Message.Chat.ID, terms[i+1:])
+							togos, err = Togo.Load(update.Message.Chat.ID, true)
+							if togos != nil {
+								if resp, err := togos.Update(update.Message.Chat.ID, terms[i+1:]); err == nil {
+									response.TextMsg = resp
+								} else {
+									response.TextMsg = err.Error()
+								}
+							} else {
+								response.TextMsg = err.Error()
+							}
 						}
 					} else {
 						response.TextMsg = "You must provide at least one Parameters!"
 					}
 				// TODO: write Tick command
 				case "✅":
-					togos := LoadForToday(update.Message.Chat.ID)
-					if len(togos) > 1 {
-
-						response.TextMsg = "Here are your togos for today:"
-						response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
+					togos, err := Togo.Load(update.Message.Chat.ID, true)
+					if togos != nil {
+						if len(togos) > 1 {
+							response.TextMsg = "Here are your togos for today:"
+							response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
+						} else {
+							response.TextMsg = "No togos to tick!"
+						}
+						if err != nil {
+							response.TextMsg = fmt.Sprintln(response.TextMsg, "- - - - - - - - - - - - - - - - - - - - - - - -\nseems: ", err.Error())
+						}
 					} else {
-						response.TextMsg = "No togos to tick!"
+						response.TextMsg = err.Error()
 					}
 				case "❌":
 					var togos Togo.TogoList
 					var err error
-					if i+1 < numOfTerms && terms[i+1] == "-a" {
-						togos, err = Togo.Load(update.Message.Chat.ID, false)
-						if err != nil {
-							log.Println(err)
-							response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
-							bot.SendTextMessage(response)
-						}
-						response.TextMsg = "Here are your ALL togos:"
-						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, true)
+					all_days := i+1 < numOfTerms && terms[i+1] == "-a"
+
+					if togos, err = Togo.Load(update.Message.Chat.ID, !all_days); togos == nil {
+						log.Println(err)
+						response.TextMsg = err.Error()
+						bot.SendTextMessage(response)
 					} else {
-						togos = LoadForToday(update.Message.Chat.ID)
-						response.TextMsg = "Here are your togos for today:"
-						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, false)
+						response.TextMsg = "Here are your Today's togos:"
+						if all_days {
+							response.TextMsg = "Here are your ALL togos:"
+						}
+						if err != nil {
+							response.TextMsg = fmt.Sprintln(response.TextMsg, "- - - - - - - - - - - - - - - - - - - - - - - -\n", err.Error())
+						}
+						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, all_days)
+					}
+				case "/db":
+					if admin_id, err := strconv.Atoi(env["ADMIN_ID"]); err == nil && int64(admin_id) != response.TargetChatId {
+						msg := tgbotapi.NewDocumentUpload(int64(admin_id), "./togos.db")
+						if _, err := bot.Send(msg); err != nil {
+							response.TextMsg = err.Error()
+						} else {
+							response.TextMsg = "Successfully sent db!"
+						}
+					} else {
+						response.TextMsg = "get the fuck off my porch!"
 					}
 				case "/now":
 					response.TextMsg = now.Get()
@@ -402,52 +454,55 @@ func main() {
 			response.MessageBeingEditedId = update.CallbackQuery.Message.MessageID
 			response.TargetChatId = update.CallbackQuery.Message.Chat.ID
 			callbackData := LoadCallbackData(update.CallbackQuery.Data)
-			if !callbackData.AllDays {
-				togos = LoadForToday(response.TargetChatId)
+
+			var err error
+			togos, err = Togo.Load(response.TargetChatId, !callbackData.AllDays)
+			if togos != nil {
+				if err != nil {
+					log.Println(err)
+					response.TextMsg = err.Error()
+					bot.SendTextMessage(response)
+				}
+				switch callbackData.Action {
+				case TickTogo:
+					togo, err := togos.Get(uint64(callbackData.ID))
+					if err != nil {
+						log.Println(err)
+						response.TextMsg = err.Error()
+						bot.SendTextMessage(response)
+					} else {
+						if (*togo).Progress < 100 {
+							(*togo).Progress = 100
+						} else {
+							(*togo).Progress = 0
+						}
+						(*togo).Update(response.TargetChatId)
+						response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
+						response.TextMsg = "✅ DONE! Now select the next togo you want to tick ..."
+					}
+				case RemoveTogo:
+					togos, err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
+					if err == nil {
+						if len(togos) > 1 {
+
+							response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
+							response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
+						} else {
+							response.TextMsg = "❌ DONE! All removed."
+						}
+
+					} else {
+						log.Println(err)
+						response.TextMsg = err.Error()
+						bot.SendTextMessage(response)
+					}
+				}
 			} else {
-				var err error
-				togos, err = Togo.Load(response.TargetChatId, false)
-				if err != nil {
-					log.Println(err)
-					response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
-					bot.SendTextMessage(response)
-				}
+				log.Println(err)
+				response.TextMsg = err.Error()
+				bot.SendTextMessage(response)
 			}
 
-			switch callbackData.Action {
-			case TickTogo:
-				togo, err := togos.Get(uint64(callbackData.ID))
-				if err != nil {
-					log.Println(err)
-					response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
-					bot.SendTextMessage(response)
-				} else {
-					if (*togo).Progress < 100 {
-						(*togo).Progress = 100
-					} else {
-						(*togo).Progress = 0
-					}
-					(*togo).Update(response.TargetChatId)
-					response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
-					response.TextMsg = "✅ DONE! Now select the next togo you want to tick ..."
-				}
-			case RemoveTogo:
-				togos, err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
-				if err == nil {
-					if len(togos) > 1 {
-
-						response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
-						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
-					} else {
-						response.TextMsg = "❌ DONE! All removed."
-					}
-
-				} else {
-					log.Println(err)
-					response.TextMsg = fmt.Sprintln("WTF?! ", err.Error())
-					bot.SendTextMessage(response)
-				}
-			}
 			bot.EditTextMessage(response)
 		}
 	}
