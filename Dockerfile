@@ -12,4 +12,5 @@ RUN go build -o tg .
 
 # EXPOSE 8080
 
+# update
 CMD ["./tg"]

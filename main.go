@@ -140,9 +140,9 @@ func InlineKeyboardMenu(togos Togo.TogoList, action UserAction, allDays bool) (i
 func MainKeyboardMenu() *tgbotapi.ReplyKeyboardMarkup {
 	return &tgbotapi.ReplyKeyboardMarkup{ResizeKeyboard: true,
 		OneTimeKeyboard: false,
-		Keyboard: [][]tgbotapi.KeyboardButton{{tgbotapi.KeyboardButton{Text: "#"}, tgbotapi.KeyboardButton{Text: "%"}},
-			{tgbotapi.KeyboardButton{Text: "#  -a"}, tgbotapi.KeyboardButton{Text: "%  -a"}},
-			{tgbotapi.KeyboardButton{Text: "✅"}, tgbotapi.KeyboardButton{Text: "❌"}, tgbotapi.KeyboardButton{Text: "❌  -a"}},
+		Keyboard: [][]tgbotapi.KeyboardButton{{tgbotapi.KeyboardButton{Text: "#"}, tgbotapi.KeyboardButton{Text: "#  -"}, tgbotapi.KeyboardButton{Text: "#  +a"}, tgbotapi.KeyboardButton{Text: "#  -a"}},
+			{tgbotapi.KeyboardButton{Text: "%"}, tgbotapi.KeyboardButton{Text: "%  +a"}},
+			{tgbotapi.KeyboardButton{Text: "✅"}, tgbotapi.KeyboardButton{Text: "❌"}, tgbotapi.KeyboardButton{Text: "❌  a"}},
 		}}
 }
 
@@ -309,7 +309,8 @@ func main() {
 					}
 				case "#":
 					var results []string
-					all_days := i+1 < numOfTerms && terms[i+1] == "-a"
+					just_undones := i+1 < numOfTerms && terms[i+1][0] == '-'
+					all_days := i+1 < numOfTerms && (terms[i+1] == "+a" || terms[i+1] == "-a")
 
 					togos, warning := Togo.Load(update.Message.Chat.ID, !all_days)
 					if togos == nil {
@@ -322,6 +323,9 @@ func main() {
 						for i := range results {
 							// newBug: result its not sorted by time
 							// possible fix: collect all togos in a day as single message
+							if just_undones && togos[i].Progress >= 100 {
+								continue
+							}
 							response.TextMsg = results[i]
 							bot.SendTextMessage(response)
 						}
@@ -360,40 +364,24 @@ func main() {
 						}
 					}
 				case "$":
+					//TODO: multiple seclect
 					var togos Togo.TogoList
 					var err error
 					// set or update a togo
 					if i+1 < numOfTerms {
-						if terms[i+1] == "-a" {
-							if i+2 < numOfTerms {
-								togos, err = Togo.Load(update.Message.Chat.ID, false)
-								if err != nil {
-									log.Println(err)
-									response.TextMsg = err.Error()
-									bot.SendTextMessage(response)
-								}
-								if resp, err := togos.Update(update.Message.Chat.ID, terms[i+2:]); err == nil {
-									response.TextMsg = resp
-								} else {
-									response.TextMsg = err.Error()
-								}
-							} else {
-								response.TextMsg = "You must provide at least one Parameters!"
-							}
-						} else {
-							togos, err = Togo.Load(update.Message.Chat.ID, true)
-							if togos != nil {
-								if resp, err := togos.Update(update.Message.Chat.ID, terms[i+1:]); err == nil {
-									response.TextMsg = resp
-								} else {
-									response.TextMsg = err.Error()
-								}
+						togos, err = Togo.Load(update.Message.Chat.ID, false)
+						if togos != nil {
+							if resp, err := togos.Update(update.Message.Chat.ID, terms[i+1:]); err == nil {
+								response.TextMsg = resp
 							} else {
 								response.TextMsg = err.Error()
 							}
+						} else {
+							response.TextMsg = err.Error()
 						}
+
 					} else {
-						response.TextMsg = "You must provide at least one Parameters!"
+						response.TextMsg = "You must provide the get identifier!"
 					}
 				// TODO: write Tick command
 				case "✅":
@@ -414,7 +402,7 @@ func main() {
 				case "❌":
 					var togos Togo.TogoList
 					var err error
-					all_days := i+1 < numOfTerms && terms[i+1] == "-a"
+					all_days := i+1 < numOfTerms && terms[i+1] == "a"
 
 					if togos, err = Togo.Load(update.Message.Chat.ID, !all_days); togos == nil {
 						log.Println(err)
@@ -431,7 +419,7 @@ func main() {
 						response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, all_days)
 					}
 				case "/db":
-					if admin_id, err := strconv.Atoi(env["ADMIN_ID"]); err == nil && int64(admin_id) != response.TargetChatId {
+					if admin_id, err := strconv.Atoi(env["ADMIN_ID"]); err == nil && int64(admin_id) == response.TargetChatId {
 						msg := tgbotapi.NewDocumentUpload(int64(admin_id), "./togos.db")
 						if _, err := bot.Send(msg); err != nil {
 							response.TextMsg = err.Error()
@@ -483,8 +471,7 @@ func main() {
 				case RemoveTogo:
 					togos, err := togos.Remove(response.TargetChatId, uint64(callbackData.ID))
 					if err == nil {
-						if len(togos) > 1 {
-
+						if len(togos) >= 1 {
 							response.TextMsg = "❌ DONE! Now select the next togo you want to REMOVE ..."
 							response.InlineKeyboard = InlineKeyboardMenu(togos, RemoveTogo, callbackData.AllDays)
 						} else {
