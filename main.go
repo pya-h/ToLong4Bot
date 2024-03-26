@@ -341,7 +341,7 @@ func main() {
 
 					togos, warning = Togo.Load(update.Message.Chat.ID, !all_days)
 					if togos == nil {
-						log.Println(warning.Error)
+						log.Println(warning.Error())
 						response.TextMsg = warning.Error()
 						bot.SendTextMessage(response)
 					} else {
