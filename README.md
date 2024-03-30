@@ -3,12 +3,8 @@
     With many extra features and Memory/Performance & Coding optimization.
     This bot application is running on Vercel as a Serverless Function bot.
 # Language: GO
-# Main changes vs previous togo4bot:
-* Changed the mechanism from serverless function to longpolling.
-* Added notification system for current togos, notifying users one minute before each togo start time.
 # Link
-    running on https://t.me/togo4plusbot
-
+    running on https://t.me/togo4bot
 # Notes:
 * Here command/param seperator is 2 SPACES (because telegram doesnt have a specific tab character)
 * More than 2 spaces is still part of the arguments; Separator is Exactly 2 spaces; nothing more of less!
@@ -62,6 +58,6 @@ POSTGRES_URL=postgres connection string
 *   in 'add new togo' syntax, all flags are optional except for the title, meaning that you can simply add new togos even with specifying the title only such as:
 =>  +   new togo here
 *   use -a flag for % and # commands to expand the togos range to ALL Times.
-
+    
 # P.S.:
    Street/Service Project, means that this one is coded while walking streets or while doing service!
