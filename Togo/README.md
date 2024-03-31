@@ -1,4 +1,8 @@
-# Togo Package
-This package is written for togo4bot telegram bot repo; (And a similar one is written for togo4 (console app))
-Run this:
+move this folder to your $GOPATH/src/
+then do:
+
+go mod init togo4
+go mod tidy
 go install
+
+(do as sudo if needs permission)
