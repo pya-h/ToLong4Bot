@@ -2,7 +2,27 @@
     Telegram bot (By webhook) version of TogoFor. for managing my todos, in order to make me go for them.
     With many extra features and Memory/Performance & Coding optimization.
     This bot application is running on Vercel as a Serverless Function bot.
-# Language: GO
+# Project Properties:
+* Language: golang
+* Branches: This repository has 3 branches, each one is a different design and uses a special mechanism.
+    * master / Togo4+ Bot: The final and ongoing variant of the bot.
+        * Platform: Telegram
+        * Mechasnism: Longpolling Bot,
+        * Database: Sqlite3
+        * Param Seperator: 2 Spaces. [Only]
+        
+    * ServerlessFunctionBot / Togo4 bot: Webhook like variant of the bot, running on vercel right now.
+        * Platform: Telegram
+        * Mechasnism: ServerlessFunction Bot [Vercel]
+        * Database: Postgres
+        * Downside: No Togo Schedular
+        * Param Seperator: 2 Spaces. [Only]
+
+    * ConsoleApp: The primary and console app version of the project. 
+        * Platform: Obvious!
+        * Database: Sqlite3
+        * Param Seperator: tab
+
 # Main changes vs previous togo4bot:
 * Changed the mechanism from serverless function to longpolling.
 * Added notification system for current togos, notifying users one minute before each togo start time.
@@ -29,21 +49,26 @@ POSTGRES_URL=postgres connection string
 # #: Show Togos
 => ...   #   [NEXT_COMMAND]
     by default shows today's togos
-=> ...   #   -a   [NEXT_COMMAND]
+=> ...   #   -[NEXT_COMMAND]
+    Show incompleted togos.
+=> ...   #   +a   [NEXT_COMMAND]
     Show all togos on any day
+=> ...   #   -a   [NEXT_COMMAND]
+    Show all togos on any day, which are not completed yet.
 # %: Progress Made:
 => ...   %   [NEXT_COMMAND]
     Calculate the progress been made (by default for Today)
+=> ...   %   -[NEXT_COMMAND]
+    Calculate the progress been made, just considering the incompleted and ongoing togos.
+=> ...   %   +a  [NEXT_COMMAND]
+    Calculate the progress been made, considering everything on any day.
 => ...   %   -a [NEXT_COMMAND]
-    Calculate the progress been made considering all togos on any day
+    Calculate the progress been made considering all incompleted togos on any day.
 
-# $: Get and Update a togo of today
+# $: Get / Update a togo
 => ... $   id   [NEXT_COMMAND]
 *   this will get and show a togo (just in today)
 => ... $   id   [=  weight]    [+p   progress_till_now]   [:   description]    [+x | -x]   [@  start_date_as_how_many_days_from_now    start_time_as_hh:mm]    [NEXT_COMMAND]
-
-# $   -a: Get and Update ANY togo
-=> ... $   -a   id   [=  weight]    [+p   progress_till_now]   [:   description]    [+x | -x]   [@  start_date_as_how_many_days_from_now    start_time_as_hh:mm]
 
 # Other Notes:
 *   ... means that these cammands can also be used after previous command in the same line.
