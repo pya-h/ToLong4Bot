@@ -3,6 +3,9 @@
     With many extra features and Memory/Performance & Coding optimization.
     This bot application is running on Vercel as a Serverless Function bot.
 # Language: GO
+# Separate Repo
+    The independent repository of this togo4bot variant is on https://github.com/pydea-rs/togo4bot
+    
 # Link
     running on https://t.me/togo4bot
 # Notes:
