@@ -1,5 +1,6 @@
 # Togo4: 2nd Street Project
     Simple console app for managing my todos, in order to make me go for them.
+    Notice: It also has its own repository <a href="https://github.com/pydea-rs/togo4">HERE</a>.
 # Language: GO
 
 # Hint

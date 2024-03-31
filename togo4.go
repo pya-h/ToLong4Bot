@@ -1,7 +1,6 @@
 package main
 
 import (
-	"Togo"
 	"bufio"
 	"chrono"
 	"context"
@@ -10,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	Togo "github.com/pydea-rs/togo4/Togo"
 )
 
 var mainTaskScheduler chrono.TaskScheduler = chrono.NewDefaultTaskScheduler()
