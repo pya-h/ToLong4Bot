@@ -391,7 +391,7 @@ func main() {
 				case "✅":
 					togos, err := Togo.Load(update.Message.Chat.ID, true)
 					if togos != nil {
-						if len(togos) > 1 {
+						if len(togos) >= 1 {
 							response.TextMsg = "Here are your togos for today:"
 							response.InlineKeyboard = InlineKeyboardMenu(togos, TickTogo, false)
 						} else {
