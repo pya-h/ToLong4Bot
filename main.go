@@ -323,10 +323,14 @@ func main() {
 						for i := range results {
 							// newBug: result its not sorted by time
 							// possible fix: collect all togos in a day as single message
-							if just_undones && togos[i].Progress >= 100 {
-								continue
+							if togos[i].Progress >= 100 {
+								if just_undones {
+									continue
+								}
+								response.TextMsg = fmt.Sprint("✅ ", results[i])
+							} else {
+								response.TextMsg = results[i]
 							}
-							response.TextMsg = results[i]
 							bot.SendTextMessage(response)
 						}
 						if warning == nil {
@@ -341,7 +345,7 @@ func main() {
 				case "%":
 					var togos Togo.TogoList
 					var warning error
-					all_days := i+1 < numOfTerms && terms[i+1] == "-a"
+					all_days := i+1 < numOfTerms && terms[i+1] == "a"
 
 					togos, warning = Togo.Load(update.Message.Chat.ID, !all_days)
 					if togos == nil {
@@ -402,7 +406,7 @@ func main() {
 				case "❌":
 					var togos Togo.TogoList
 					var err error
-					all_days := i+1 < numOfTerms && terms[i+1] == "a"
+					all_days := i+1 < numOfTerms && terms[i+1] == "+a"
 
 					if togos, err = Togo.Load(update.Message.Chat.ID, !all_days); togos == nil {
 						log.Println(err)
